@@ -28,15 +28,15 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --update
 
-      - name: Install Node.js
+      - name: Install Node.js (si React Native)
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install npm dependencies
+      - name: Install npm dependencies (si React Native)
         run: npm ci
 
-      - name: Update Gradle Wrapper
+      - name: Update Gradle Wrapper to 7.4.2
         run: |
           cd android
           ./gradlew wrapper --gradle-version 7.4.2 --distribution-type bin
