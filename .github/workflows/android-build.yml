@@ -1,4 +1,4 @@
-name: Android Debug Build
+name: Android CI
 
 on:
   push:
@@ -36,12 +36,15 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Ensure gradlew is executable
-        run: chmod +x android/gradlew
-
-      - name: Generate debug keystore with proper alias
+      - name: Update Gradle Wrapper
         run: |
-          rm -f android/app/debug.keystore
+          cd android
+          ./gradlew wrapper --gradle-version 7.4.2 --distribution-type bin
+          chmod +x gradlew
+
+      - name: Generate debug keystore
+        run: |
+          mkdir -p android/app
           keytool -genkeypair \
             -v \
             -keystore android/app/debug.keystore \
@@ -51,21 +54,16 @@ jobs:
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US" \
-            -deststoretype pkcs12
-          keytool -list -v \
-            -keystore android/app/debug.keystore \
-            -alias androiddebugkey \
-            -storepass android
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build APK
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace --info
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
+          name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 7
