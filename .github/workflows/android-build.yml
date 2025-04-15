@@ -34,12 +34,10 @@ jobs:
           node-version: '18'
 
       - name: Install npm dependencies
-        run: |
-          npm ci
+        run: npm ci
 
-      - name: Create Android directory structure
-        run: |
-          mkdir -p android/app
+      - name: Ensure gradlew is executable
+        run: chmod +x android/gradlew
 
       - name: Generate debug keystore with proper alias
         run: |
@@ -60,17 +58,13 @@ jobs:
             -alias androiddebugkey \
             -storepass android
 
-
       - name: Build APK
         run: |
           cd android
-          ./gradlew assembleDebug \
-            --no-daemon \
-            --stacktrace \
-            --info
+          ./gradlew assembleDebug --no-daemon --stacktrace --info
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4  # <--- UTILISEZ v4
+        uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
