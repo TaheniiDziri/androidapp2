@@ -49,6 +49,14 @@ jobs:
               yes | android-sdk/tools/bin/sdkmanager --licenses
               echo "SDK Android installé et configuré."
           fi
+          
+          # Extraire la version SDK à partir de build.gradle
+          sdk_version=$(grep -oP 'compileSdkVersion\s=\s\K\d+' android/build.gradle)
+          echo "Version du SDK Android détectée: $sdk_version"
+
+          # Installer le SDK Android correspondant
+          sdkmanager "platforms;android-$sdk_version" "build-tools;$sdk_version"
+
           sdkmanager --list  # Liste des composants disponibles du SDK
 
       # Étape 4: Détection et installation de la version de Node.js
@@ -63,7 +71,7 @@ jobs:
             echo "Pas de package.json trouvé, utilisation de Node.js $node_version."
           fi
           # Installation de Node.js avec la version détectée
-          curl -sL https://deb.nodesource.com/setup_$node_version.x | sudo -E bash -
+          curl -sL https://deb.nodesource.com/setup_$node_version.x | sudo -E bash - 
           sudo apt-get install -y nodejs
 
       # Étape 5: Installation des dépendances npm
