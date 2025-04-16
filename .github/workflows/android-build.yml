@@ -101,25 +101,31 @@ jobs:
             sed -i "s/apply plugin: 'maven'/apply plugin: 'maven-publish'/" "$FILE"
           fi
 
-      # **NOUVEAU** : Générer un keystore de débogage
+      # Étape 8: Générer un keystore de débogage
       - name: Générer un keystore de débogage
         run: |
-          keytool -genkeypair \
-            -v \
-            -keystore android/app/debug.keystore \
-            -alias androiddebugkey \
-            -storepass android \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US" \
-            -deststoretype pkcs12
+          if [ ! -f android/app/debug.keystore ]; then
+            echo "Keystore de débogage non trouvé, création en cours..."
+            keytool -genkeypair \
+              -v \
+              -keystore android/app/debug.keystore \
+              -alias androiddebugkey \
+              -storepass android \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -deststoretype pkcs12
+          else
+            echo "Keystore de débogage déjà existant, aucune action nécessaire."
+          fi
           # Vérification que le keystore a été créé correctement
           keytool -list -v \
             -keystore android/app/debug.keystore \
             -alias androiddebugkey \
             -storepass android
+
 
       # Étape 8: Build Android Debug APK
       - name: Build Debug APK
