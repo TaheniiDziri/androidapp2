@@ -52,7 +52,7 @@ jobs:
           sdkmanager --licenses <<< "y"
           sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.2"
 
-      # Étape 5: Détecter la version de Node.js et l’installer
+      # Étape 5: Détecter la version de Node.js et installer
       - name: Détecter la version de Node.js et installer
         run: |
           if [ -f "package.json" ]; then
@@ -66,7 +66,6 @@ jobs:
             node_version="18"
             echo "Pas de package.json trouvé, utilisation de Node.js $node_version."
           fi
-
           major_version=${node_version%%.*}
           curl -sL https://deb.nodesource.com/setup_${major_version}.x | sudo -E bash -
           sudo apt-get install -y nodejs
@@ -81,6 +80,22 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      # **NOUVEAU** : Ajouter compileSdkVersion si manquant
+      - name: Ajouter compileSdkVersion si manquant
+        run: |
+          if ! grep -q "compileSdkVersion" android/build.gradle; then
+            echo "Ajout de compileSdkVersion = 33"
+            sed -i '/ext {/a\        compileSdkVersion = 33' android/build.gradle
+          fi
+
+      # **NOUVEAU** : Corriger le plugin 'maven' de react-native-reanimated
+      - name: Corriger le plugin 'maven' de react-native-reanimated
+        run: |
+          FILE="node_modules/react-native-reanimated/android/build.gradle"
+          if grep -q "apply plugin: 'maven'" "$FILE"; then
+            sed -i "s/apply plugin: 'maven'/apply plugin: 'maven-publish'/" "$FILE"
+          fi
 
       # Étape 8: Build Android Debug APK
       - name: Build Debug APK
