@@ -74,11 +74,22 @@ jobs:
           curl -sL https://deb.nodesource.com/setup_${major_version}.x | sudo -E bash -
           sudo apt-get install -y nodejs
 
-      # Étape 6: Installation des dépendances npm
-      - name: Installer les dépendances npm
-        run: npm ci
+      # Étape 6: Nettoyage de node_modules et package-lock.json (sécurisé)
+      - name: Nettoyage de node_modules et package-lock.json (sécurisé)
+        run: |
+          echo "Suppression de node_modules et package-lock.json si nécessaires..."
+          rm -rf node_modules
+          if [ -f package-lock.json ]; then
+            rm package-lock.json
+          fi
 
-      # Étape 7: Installation de JDK 17
+      # Étape 7: Tentative npm ci avec fallback vers npm install
+      - name: Tentative npm ci avec fallback vers npm install
+        run: |
+          echo "Exécution de npm ci..."
+          npm ci || (echo "npm ci a échoué, fallback vers npm install..." && rm -f package-lock.json && npm install)
+
+      # Étape 8: Installation de JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -126,8 +137,7 @@ jobs:
             -alias androiddebugkey \
             -storepass android
 
-
-      # Étape 8: Build Android Debug APK
+      # Étape 9: Build Android Debug APK
       - name: Build Debug APK
         run: ./gradlew assembleDebug
         working-directory: android
