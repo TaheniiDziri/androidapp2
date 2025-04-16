@@ -51,6 +51,7 @@ jobs:
         run: |
           sdkmanager --licenses <<< "y"  # Accepte toutes les licences
           sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.2"
+          sdkmanager --update  # Mise à jour des composants SDK pour s'assurer que tout est à jour
 
       # Étape 5: Détecter la version de Node.js et installer
       - name: Détecter la version de Node.js et installer
