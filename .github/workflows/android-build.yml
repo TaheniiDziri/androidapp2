@@ -11,35 +11,89 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout code
+      # Étape 1: Checkout du code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: ☕ Install Java 17
+      # Étape 2: Vérification de la structure du projet
+      - name: Vérification de la structure du projet
+        run: |
+          echo "Vérification de la structure du projet..."
+          if [ ! -d "android" ]; then
+            echo "Le répertoire 'android' est manquant. Assurez-vous que c'est un projet Android ou React Native."
+            exit 1
+          fi
+          if [ ! -f "package.json" ]; then
+            echo "Le fichier 'package.json' est manquant. Assurez-vous que c'est un projet React Native."
+            exit 1
+          fi
+          if [ ! -f "android/build.gradle" ]; then
+            echo "Le fichier 'android/build.gradle' est manquant."
+            exit 1
+          fi
+          echo "Structure du projet validée."
+
+      # Étape 3: Vérification des versions du SDK Android et de Java
+      - name: Vérification des versions SDK et Java
+        run: |
+          echo "Vérification de la version du SDK Android et de Java..."
+          java -version
+          sdkmanager --list
+          gradle -v
+
+      # Étape 4: Détection et installation de la version de Node.js
+      - name: Détecter la version de Node.js et installer
+        run: |
+          if [ -f "package.json" ]; then
+            echo "Détection de la version de Node.js à partir de package.json..."
+            node_version=$(jq -r '.engines.node' package.json || echo '14')  # Par défaut, Node 14 si non défini
+            echo "Version de Node.js trouvée: $node_version"
+          else
+            node_version='18'  # Par défaut Node 18 pour les projets Android natifs
+            echo "Pas de package.json trouvé, utilisation de Node.js $node_version."
+          fi
+          # Installation de Node.js avec la version détectée
+          curl -sL https://deb.nodesource.com/setup_$node_version.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+
+      # Étape 5: Installation des dépendances npm
+      - name: Installer les dépendances npm
+        run: |
+          npm ci
+
+      # Étape 6: Installation et configuration de JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 📱 Setup Android SDK
+      # Étape 7: Setup du SDK Android
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
-      - name: 📄 Accept Android licenses
+      # Étape 8: Acceptation des licences Android
+      - name: Accept Android licenses
         run: |
           yes | sdkmanager --licenses
           sdkmanager --update
 
-      - name: 📦 Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+      # Étape 9: Nettoyage des artefacts précédents
+      - name: Clean previous builds
+        run: |
+          echo "Nettoyage des artefacts de build précédents..."
+          rm -rf android/app/build/*
 
-      - name: 📦 Install npm dependencies
-        run: npm ci
-
-      - name: 🗝 Generate debug keystore (if not exists)
+      # Étape 10: Création de la structure Android si elle n'existe pas
+      - name: Create Android directory structure
         run: |
           mkdir -p android/app
-          if [ ! -f android/app/debug.keystore ]; then
+
+      # Étape 11: Génération automatique du keystore de débogage si nécessaire
+      - name: Generate debug keystore with proper alias
+        run: |
+          if [ ! -f "android/app/debug.keystore" ]; then
+            echo "Keystore de débogage manquant, création..."
             keytool -genkeypair \
               -v \
               -keystore android/app/debug.keystore \
@@ -51,16 +105,24 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US" \
               -deststoretype pkcs12
+            keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android
+          else
+            echo "Keystore de débogage trouvé."
           fi
 
-
-      - name: 🛠 Build Debug APK
+      # Étape 12: Build de l'APK
+      - name: Build APK
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew clean assembleDebug \
+            --no-daemon \
+            --stacktrace \
+            --info
 
-      - name: 📤 Upload APK
+      # Étape 13: Upload de l'APK généré en tant qu'artefact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
