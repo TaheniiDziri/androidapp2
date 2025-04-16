@@ -101,9 +101,14 @@ jobs:
             sed -i "s/apply plugin: 'maven'/apply plugin: 'maven-publish'/" "$FILE"
           fi
 
-      # **NOUVEAU** : Générer un keystore de débogage
-      - name: Générer un keystore de débogage
+      # **NOUVEAU** : Supprimer l'ancien keystore et en créer un nouveau
+      - name: Supprimer l'ancien keystore et générer un nouveau
         run: |
+          if [ -f "android/app/debug.keystore" ]; then
+            echo "Suppression de l'ancien debug.keystore..."
+            rm -f android/app/debug.keystore
+          fi
+          echo "Création d'un nouveau debug.keystore..."
           keytool -genkeypair \
             -v \
             -keystore android/app/debug.keystore \
@@ -120,6 +125,7 @@ jobs:
             -keystore android/app/debug.keystore \
             -alias androiddebugkey \
             -storepass android
+
 
       # Étape 8: Build Android Debug APK
       - name: Build Debug APK
