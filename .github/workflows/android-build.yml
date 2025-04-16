@@ -14,21 +14,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract Gradle version from gradle-wrapper.properties
+      - name: Extract Gradle version
         id: gradle
         run: |
           GRADLE_VERSION=$(grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([^-]+)-.*/\1/')
-          echo "Detected Gradle version: $GRADLE_VERSION"
           echo "gradle-version=$GRADLE_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Set up correct Java version based on Gradle version
+      - name: Set correct Java version
         id: java
         run: |
           VERSION="${{ steps.gradle.outputs.gradle-version }}"
           if [[ "$VERSION" == 6.* ]]; then JAVA_VERSION=8;
           elif [[ "$VERSION" == 7.* ]]; then JAVA_VERSION=11;
           else JAVA_VERSION=17; fi
-          echo "Using Java version: $JAVA_VERSION"
           echo "java-version=$JAVA_VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up JDK
