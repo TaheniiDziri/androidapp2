@@ -33,115 +33,52 @@ jobs:
           fi
           echo "Structure du projet validée."
 
-      # Étape 3: Vérification des versions SDK et Java
-      - name: Vérification des versions SDK et Java
+      # Étape 3: Installation manuelle propre du SDK Android
+      - name: Install Android SDK (cmdline-tools)
         run: |
-          echo "Vérification de la version du SDK Android et de Java..."
-          java -version
-          # Vérifier que le SDK Android est installé
-          if ! command -v sdkmanager &> /dev/null
-          then
-              echo "Le SDK Android n'est pas installé. Installation en cours..."
-              # Installation du SDK Android
-              sudo apt-get install -y unzip
-              wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip
-              unzip commandlinetools-linux-7583922_latest.zip -d android-sdk
-              yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-              echo "SDK Android installé et configuré."
-          fi
+          echo "Installation du SDK Android..."
+          mkdir -p android-sdk/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk.zip
+          unzip sdk.zip -d tmp-sdk
+          mv tmp-sdk/cmdline-tools android-sdk/cmdline-tools/latest
+          rm -rf tmp-sdk sdk.zip
 
-          # Spécification manuelle du SDK à utiliser (exemple: SDK version 29)
-          sdk_version=29
-          echo "Version du SDK Android spécifiée manuellement: $sdk_version"
+          echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
+          echo "$PWD/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$PWD/android-sdk/platform-tools" >> $GITHUB_PATH
 
-          # Installer le SDK Android correspondant
-          android_sdk_path="android-sdk/cmdline-tools/latest/bin"
-          $android_sdk_path/sdkmanager "platforms;android-$sdk_version" "build-tools;$sdk_version"
+      # Étape 4: Acceptation des licences et installation des composants nécessaires
+      - name: Installer les composants SDK nécessaires
+        run: |
+          sdkmanager --licenses <<< "y"
+          sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.2"
 
-          sdkmanager --list  # Liste des composants disponibles du SDK
-
-      # Étape 4: Détection et installation de la version de Node.js
+      # Étape 5: Détecter la version de Node.js et l’installer
       - name: Détecter la version de Node.js et installer
         run: |
           if [ -f "package.json" ]; then
             echo "Détection de la version de Node.js à partir de package.json..."
-            node_version=$(jq -r '.engines.node' package.json || echo '14')  # Par défaut, Node 14 si non défini
+            node_version=$(jq -r '.engines.node' package.json || echo '14')
             echo "Version de Node.js trouvée: $node_version"
           else
-            node_version='18'  # Par défaut Node 18 pour les projets Android natifs
+            node_version='18'
             echo "Pas de package.json trouvé, utilisation de Node.js $node_version."
           fi
-          # Installation de Node.js avec la version détectée
-          curl -sL https://deb.nodesource.com/setup_$node_version.x | sudo -E bash - 
+          curl -sL https://deb.nodesource.com/setup_$node_version.x | sudo -E bash -
           sudo apt-get install -y nodejs
 
-      # Étape 5: Installation des dépendances npm
+      # Étape 6: Installation des dépendances npm
       - name: Installer les dépendances npm
-        run: |
-          npm ci
+        run: npm ci
 
-      # Étape 6: Installation et configuration de JDK 17
+      # Étape 7: Installation de JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # Étape 7: Setup du SDK Android
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-
-      # Étape 8: Acceptation des licences Android
-      - name: Accept Android licenses
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager --update
-
-      # Étape 9: Nettoyage des artefacts précédents
-      - name: Clean previous builds
-        run: |
-          echo "Nettoyage des artefacts de build précédents..."
-          rm -rf android/app/build/*
-
-      # Étape 10: Création de la structure Android si elle n'existe pas
-      - name: Create Android directory structure
-        run: |
-          mkdir -p android/app
-
-      # Étape 11: Génération automatique du keystore de débogage si nécessaire
-      - name: Generate debug keystore with proper alias
-        run: |
-          if [ ! -f "android/app/debug.keystore" ]; then
-            echo "Keystore de débogage manquant, création..."
-            keytool -genkeypair \
-              -v \
-              -keystore android/app/debug.keystore \
-              -alias androiddebugkey \
-              -storepass android \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US" \
-              -deststoretype pkcs12
-            keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android
-          else
-            echo "Keystore de débogage trouvé."
-          fi
-
-      # Étape 12: Build de l'APK
-      - name: Build APK
-        run: |
-          cd android
-          ./gradlew clean assembleDebug \
-            --no-daemon \
-            --stacktrace \
-            --info
-
-      # Étape 13: Upload de l'APK généré en tant qu'artefact
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 7
+      # Étape 8: Build Android Debug APK
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+        working-directory: android
