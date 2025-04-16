@@ -19,44 +19,13 @@ jobs:
       - name: Vérification de la structure du projet
         run: |
           echo "Vérification de la structure du projet..."
-          if [ ! -d "android" ]; then
-            echo "Le répertoire 'android' est manquant. Assurez-vous que c'est un projet Android ou React Native."
-            exit 1
-          fi
           if [ ! -f "package.json" ]; then
             echo "Le fichier 'package.json' est manquant. Assurez-vous que c'est un projet React Native."
             exit 1
           fi
-          if [ ! -f "android/build.gradle" ]; then
-            echo "Le fichier 'android/build.gradle' est manquant."
-            exit 1
-          fi
           echo "Structure du projet validée."
 
-      # Étape 3: Installation manuelle propre du SDK Android
-      - name: Install Android SDK (cmdline-tools)
-        run: |
-          echo "Installation du SDK Android..."
-          mkdir -p android-sdk/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk.zip
-          unzip sdk.zip -d tmp-sdk
-          mv tmp-sdk/cmdline-tools android-sdk/cmdline-tools/latest
-          rm -rf tmp-sdk sdk.zip
-          echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
-          echo "$PWD/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$PWD/android-sdk/platform-tools" >> $GITHUB_PATH
-          # Set ANDROID_SDK_ROOT to match ANDROID_HOME
-          echo "ANDROID_SDK_ROOT=$PWD/android-sdk" >> $GITHUB_ENV
-
-      # Étape 4: Acceptation des licences et installation des composants nécessaires
-      - name: Accepter les licences SDK et installer les composants nécessaires
-        run: |
-          echo "Accepter les licences SDK Android..."
-          yes | sdkmanager --licenses  # Accepter toutes les licences automatiquement
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;30.0.3"  # Installe les composants nécessaires
-          sdkmanager --update  # Mise à jour des composants SDK pour s'assurer que tout est à jour
-
-      # Étape 5: Détecter la version de Node.js et installer
+      # Étape 3: Détection de la version de Node.js et installation
       - name: Détecter la version de Node.js et installer
         run: |
           if [ -f "package.json" ]; then
@@ -74,27 +43,40 @@ jobs:
           curl -sL https://deb.nodesource.com/setup_${major_version}.x | sudo -E bash -
           sudo apt-get install -y nodejs
 
-      # Étape 6: Nettoyage de node_modules et package-lock.json (sécurisé)
-      - name: Nettoyage de node_modules et package-lock.json (sécurisé)
+      # Étape 4: Installation des dépendances npm sans modifier package-lock.json
+      - name: Installer les dépendances npm
         run: |
-          echo "Suppression de node_modules et package-lock.json si nécessaires..."
-          rm -rf node_modules
-          if [ -f package-lock.json ]; then
-            rm package-lock.json
-          fi
+          npm install --no-save
 
-      # Étape 7: Tentative npm ci avec fallback vers npm install
-      - name: Tentative npm ci avec fallback vers npm install
+      # Étape 5: Restaurer le fichier package-lock.json si nécessaire
+      - name: Restaurer le fichier package-lock.json
         run: |
-          echo "Exécution de npm ci..."
-          npm ci || (echo "npm ci a échoué, fallback vers npm install..." && rm -f package-lock.json && npm install)
+          git checkout -- package-lock.json
 
-      # Étape 8: Installation de JDK 17
+      # Étape 6: Installation de JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      # Étape 7: Vérification de la version du SDK Android
+      - name: Vérifier la version du SDK Android
+        run: |
+          echo "Vérification de la version du SDK Android..."
+          if [ ! -d "$ANDROID_HOME" ]; then
+            echo "Le SDK Android n'est pas installé. Installation en cours..."
+            mkdir -p $ANDROID_HOME
+            curl -sL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o android-sdk.zip
+            unzip android-sdk.zip -d $ANDROID_HOME
+            rm android-sdk.zip
+          fi
+
+      # Étape 8: Acceptation des licences et installation des composants nécessaires
+      - name: Accepter les licences SDK et installer les composants nécessaires
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;30.0.3" # Installe les composants nécessaires
 
       # **NOUVEAU** : Ajouter compileSdkVersion si manquant
       - name: Ajouter compileSdkVersion si manquant
@@ -112,14 +94,9 @@ jobs:
             sed -i "s/apply plugin: 'maven'/apply plugin: 'maven-publish'/" "$FILE"
           fi
 
-      # **NOUVEAU** : Supprimer l'ancien keystore et en créer un nouveau
-      - name: Supprimer l'ancien keystore et générer un nouveau
+      # **NOUVEAU** : Générer un keystore de débogage
+      - name: Générer un keystore de débogage
         run: |
-          if [ -f "android/app/debug.keystore" ]; then
-            echo "Suppression de l'ancien debug.keystore..."
-            rm -f android/app/debug.keystore
-          fi
-          echo "Création d'un nouveau debug.keystore..."
           keytool -genkeypair \
             -v \
             -keystore android/app/debug.keystore \
