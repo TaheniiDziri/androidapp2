@@ -33,13 +33,23 @@ jobs:
           fi
           echo "Structure du projet validée."
 
-      # Étape 3: Vérification des versions du SDK Android et de Java
+      # Étape 3: Vérification des versions SDK et Java
       - name: Vérification des versions SDK et Java
         run: |
           echo "Vérification de la version du SDK Android et de Java..."
           java -version
-          sdkmanager --list
-          gradle -v
+          # Vérifier que le SDK Android est installé
+          if ! command -v sdkmanager &> /dev/null
+          then
+              echo "Le SDK Android n'est pas installé. Installation en cours..."
+              # Installation du SDK Android
+              sudo apt-get install -y unzip
+              wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip
+              unzip commandlinetools-linux-7583922_latest.zip -d android-sdk
+              yes | android-sdk/tools/bin/sdkmanager --licenses
+              echo "SDK Android installé et configuré."
+          fi
+          sdkmanager --list  # Liste des composants disponibles du SDK
 
       # Étape 4: Détection et installation de la version de Node.js
       - name: Détecter la version de Node.js et installer
