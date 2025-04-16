@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -47,16 +46,17 @@ jobs:
               sudo apt-get install -y unzip
               wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip
               unzip commandlinetools-linux-7583922_latest.zip -d android-sdk
-              yes | android-sdk/tools/bin/sdkmanager --licenses
+              yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
               echo "SDK Android installé et configuré."
           fi
-          
-          # Extraire la version SDK à partir de build.gradle
-          sdk_version=$(grep -oP 'compileSdkVersion\s=\s\K\d+' android/build.gradle)
-          echo "Version du SDK Android détectée: $sdk_version"
+
+          # Spécification manuelle du SDK à utiliser (exemple: SDK version 29)
+          sdk_version=29
+          echo "Version du SDK Android spécifiée manuellement: $sdk_version"
 
           # Installer le SDK Android correspondant
-          sdkmanager "platforms;android-$sdk_version" "build-tools;$sdk_version"
+          android_sdk_path="android-sdk/cmdline-tools/latest/bin"
+          $android_sdk_path/sdkmanager "platforms;android-$sdk_version" "build-tools;$sdk_version"
 
           sdkmanager --list  # Liste des composants disponibles du SDK
 
