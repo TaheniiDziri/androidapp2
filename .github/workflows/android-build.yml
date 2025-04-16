@@ -1,4 +1,4 @@
-name: Android CI (Java 17 + Gradle 7.6.3)
+name: Android Debug Build
 
 on:
   push:
@@ -14,11 +14,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Extract Gradle version from gradle-wrapper.properties
+        id: gradle
+        run: |
+          GRADLE_VERSION=$(grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([^-]+)-.*/\1/')
+          echo "Detected Gradle version: $GRADLE_VERSION"
+          echo "gradle-version=$GRADLE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up correct Java version based on Gradle version
+        id: java
+        run: |
+          VERSION="${{ steps.gradle.outputs.gradle-version }}"
+          if [[ "$VERSION" == 6.* ]]; then JAVA_VERSION=8;
+          elif [[ "$VERSION" == 7.* ]]; then JAVA_VERSION=11;
+          else JAVA_VERSION=17; fi
+          echo "Using Java version: $JAVA_VERSION"
+          echo "java-version=$JAVA_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: ${{ steps.java.outputs.java-version }}
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
@@ -28,32 +45,29 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --update
 
-      - name: Install Node.js (si React Native)
+      - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '18' # facultatif : on peut aussi le lire de .nvmrc ou package.json
 
-      - name: Install npm dependencies (si React Native)
+      - name: Install npm dependencies
         run: npm ci
 
-      - name: Ensure gradlew is executable
-        run: chmod +x android/gradlew
-
-      - name: Generate debug keystore
+      - name: Generate debug keystore (skip if exists)
         run: |
-          rm -f android/app/debug.keystore  
-          mkdir -p android/app
-          keytool -genkeypair \
-            -v \
-            -keystore android/app/debug.keystore \
-            -alias androiddebugkey \
-            -storepass android \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
+          if [ ! -f android/app/debug.keystore ]; then
+            keytool -genkeypair \
+              -v \
+              -keystore android/app/debug.keystore \
+              -alias androiddebugkey \
+              -storepass android \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -deststoretype pkcs12
+          fi
 
       - name: Build APK
         run: |
@@ -63,6 +77,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 7
