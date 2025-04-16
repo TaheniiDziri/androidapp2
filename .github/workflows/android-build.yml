@@ -14,28 +14,13 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔍 Extract Gradle version
-        id: gradle
-        run: |
-          GRADLE_VERSION=$(grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([^-]+)-.*/\1/')
-          echo "gradle-version=$GRADLE_VERSION" >> $GITHUB_OUTPUT
-
-      - name: ☕ Set Java version based on Gradle version
-        id: java
-        run: |
-          VERSION="${{ steps.gradle.outputs.gradle-version }}"
-          if [[ "$VERSION" == 6.* ]]; then JAVA_VERSION=8;
-          elif [[ "$VERSION" == 7.* ]]; then JAVA_VERSION=11;
-          else JAVA_VERSION=17; fi
-          echo "java-version=$JAVA_VERSION" >> $GITHUB_OUTPUT
-
-      - name: ☕ Install Java
+      - name: ☕ Install Java 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: ${{ steps.java.outputs.java-version }}
+          java-version: '17'
 
-      - name: 📱 Setup Android SDK (après Java)
+      - name: 📱 Setup Android SDK
         uses: android-actions/setup-android@v2
 
       - name: 📄 Accept Android licenses
@@ -43,7 +28,7 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --update
 
-      - name: 📦 Setup Node.js
+      - name: 📦 Install Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
@@ -53,20 +38,18 @@ jobs:
 
       - name: 🗝 Generate debug keystore (if not exists)
         run: |
-          if [ ! -f android/app/debug.keystore ]; then
-            mkdir -p android/app
-            keytool -genkeypair \
-              -v \
-              -keystore android/app/debug.keystore \
-              -alias androiddebugkey \
-              -storepass android \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US" \
-              -deststoretype pkcs12
-          fi
+          mkdir -p android/app
+          keytool -genkeypair \
+            -v \
+            -keystore android/app/debug.keystore \
+            -alias androiddebugkey \
+            -storepass android \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -deststoretype pkcs12
 
       - name: 🛠 Build Debug APK
         run: |
