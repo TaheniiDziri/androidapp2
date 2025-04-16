@@ -45,12 +45,15 @@ jobs:
           echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
           echo "$PWD/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$PWD/android-sdk/platform-tools" >> $GITHUB_PATH
+          # Set ANDROID_SDK_ROOT to match ANDROID_HOME
+          echo "ANDROID_SDK_ROOT=$PWD/android-sdk" >> $GITHUB_ENV
 
       # Étape 4: Acceptation des licences et installation des composants nécessaires
-      - name: Installer les composants SDK nécessaires et accepter les licences
+      - name: Accepter les licences SDK et installer les composants nécessaires
         run: |
-          sdkmanager --licenses <<< "y"  # Accepte toutes les licences
-          sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.2"
+          echo "Accepter les licences SDK Android..."
+          yes | sdkmanager --licenses  # Accepter toutes les licences automatiquement
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;30.0.3"  # Installe les composants nécessaires
           sdkmanager --update  # Mise à jour des composants SDK pour s'assurer que tout est à jour
 
       # Étape 5: Détecter la version de Node.js et installer
